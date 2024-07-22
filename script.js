@@ -10,6 +10,7 @@ function openModal(imageSrc) {
         var modal = document.getElementById("howtoplay-modal");
         modal.style.display = "none";
 }
+
 // DOM
 document.addEventListener('DOMContentLoaded', function () {
     const boxesbarContainer = document.getElementById('boxes-bar');
@@ -31,7 +32,6 @@ document.addEventListener('DOMContentLoaded', function () {
         selectedPokemonIds.push(randomPkId);
         return randomPkId;
     }
-    
 
     // AUDIO
     const battleMusic = document.getElementById('battleMusic');
@@ -83,23 +83,29 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
 
-    // STORE IMAGE
-    async function loadPkImg(pkId) {
-        return new Promise((resolve) => {
-            const pkImg = new Image();
-            pkImg.src = `pklist/${pkId.toString().padStart(4, '0')}.png`;
-            pkImg.alt = pkId.toString();
-            pkImg.draggable = false;
-            pkImg.onload = async () => {
-                pkImg.classList.add('loaded', 'pk-image');
-                resolve(pkImg);
-                if (!pkLoadConfirmed) {
-                    await getPkData(pkId);
-                }
-            };
-        });
-    }
-    
+// STORE IMAGE
+async function loadPkImg(pkId) {
+    return new Promise(async (resolve) => {
+        const formattedPkId = pkId.toString().padStart(4, '0');
+        const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${pkId}`);
+        const data = await response.json();
+        const imageUrl = data.sprites.other['official-artwork'].front_default;
+        
+        const pkImg = new Image();
+        pkImg.src = imageUrl;
+        pkImg.alt = pkId.toString();
+        pkImg.draggable = false;
+        pkImg.onload = async () => {
+            pkImg.classList.add('loaded', 'pk-image');
+            resolve(pkImg);
+            if (!pkLoadConfirmed) {
+                await getPkData(pkId);
+            }
+        };
+    });
+}
+
+
 
     // SHOW IMG
     async function addRandomImgPk() {
@@ -225,7 +231,6 @@ document.addEventListener('DOMContentLoaded', function () {
                         id: pkId,
                         stats: pkData
                     };
-                    console.log('Chosen:', confirmedPkId);
                     confirmButton.remove();
                     pkLoadConfirmed = true;
                     await generateSidePks(selectedClone);
@@ -268,6 +273,7 @@ document.addEventListener('DOMContentLoaded', function () {
             console.log('Left stats:', sidePkData[0]);
 
             fadeInImage(centerImg.cloneNode(true));
+            console.log('Selected stats:', confirmedPkId);
 
             fadeInImage(sideImgs[1]);
             console.log('Right stats:', sidePkData[1]);
@@ -295,7 +301,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }, 500);
         }
 
-        // Función para esperar la selección del participante
+        // WAIT FOR SELECTION 
         function waitForSelection() {
             return new Promise((resolve) => {
                 const boxesbarImages = document.querySelectorAll('#boxes-bar img');
@@ -306,10 +312,8 @@ document.addEventListener('DOMContentLoaded', function () {
                         clickSound.play();
                         if (!pkLoadConfirmed) {
                             addSelectedParticipant(img).then(() => {
-                                resolve(); // Resolver la promesa cuando se confirma el Pokémon seleccionado
+                                resolve();
                             });
-                        } else {
-                            console.log('Ya has confirmado un Pokémon. No puedes seleccionar otro.');
                         }
                     });
                 });
@@ -320,90 +324,59 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Función para iniciar la batalla
         function startBattle() {
-            console.log('Batalla comenzada');
-            
-            // Reproduce el sonido de sacudida
+
+            // FIGHT SOUND
             battleMusic.currentTime = 0;
             battleMusic.volume = musicVolumeControl.value;
             battleMusic.play();
 
-            // Obtener todas las imágenes dentro de minigameContainer
             const pkImgs = document.querySelectorAll('#minigame-container img');
 
-            // Agitar las imágenes durante 3 segundos
+            // SHAKE IMGS
         pkImgs.forEach(img => {
             img.style.transition = 'transform 0.1s ease-in-out';
-            img.style.animation = 'shake 0.5s ease-in-out 5'; // Agregar clase de animación para agitar
+            img.style.animation = 'shake 0.5s ease-in-out 5';
         });
-
-        // Esperar a que la animación termine y ejecutar el código adicional
+            // SHOW RESULTS
         pkImgs[0].addEventListener('animationend', async () => {
-            // Aquí empieza el nuevo código agregado después de la animación
-            // Aplicar grayscale a las imágenes individuales según los resultados individuales
             const pkStats = [];
             pkStats.push(await getPkData(parseInt(pkImgs[0].alt.replace('Pk ', ''), 10)));
             pkStats.push(confirmedPkId.stats);
             pkStats.push(await getPkData(parseInt(pkImgs[2].alt.replace('Pk ', ''), 10)));
 
-            console.log('HP del Pokémon Izquierda:', pkStats[0].hp);
-            console.log('HP del Pokémon Centro:', pkStats[1].hp);
-            console.log('HP del Pokémon Derecha:', pkStats[2].hp);
+            console.log('Left HP:', pkStats[0].hp);
+            console.log('Selected HP:', pkStats[1].hp);
+            console.log('Right HP:', pkStats[2].hp);
 
-            // Determinar el resultado de cada Pokémon individualmente
             const results = [
-                pkStats[0].hp > pkStats[1].hp && pkStats[0].hp > pkStats[2].hp ? 'win' : 'lose', // Pokémon izquierda
-                pkStats[1].hp > pkStats[0].hp && pkStats[1].hp > pkStats[2].hp ? 'win' : 'lose', // Pokémon centro
-                pkStats[2].hp > pkStats[0].hp && pkStats[2].hp > pkStats[1].hp ? 'win' : 'lose'  // Pokémon derecha
+                pkStats[0].hp > pkStats[1].hp && pkStats[0].hp > pkStats[2].hp ? 'win' : 'lose',
+                pkStats[1].hp > pkStats[0].hp && pkStats[1].hp > pkStats[2].hp ? 'win' : 'lose',
+                pkStats[2].hp > pkStats[0].hp && pkStats[2].hp > pkStats[1].hp ? 'win' : 'lose'
             ];
-    // Determinar si hay empates y su tipo (ganando, perdiendo o empate con tie-win o tie-lose)
-    if (pkStats[0].hp === pkStats[1].hp) {              //SI IZQUIERDA Y CENTRO EMPATAN
 
-        if (pkStats[0].hp > pkStats[2].hp) {               //e izquierda > derecha
-            results[0] = 'tie-win';                             //izquierda empata ganando
-            results[1] = 'tie-win';                             //centro empata ganando
-            results[2] = 'lose';                                //derecha pierde       
-        } else if (pkStats[0].hp < pkStats[2].hp) {        //e izquierda < derecha
-            results[0] = 'tie-lose';                            //izquierda empata perdiendo
-            results[1] = 'tie-lose';                            //centro empata perdiendo 
-            results[2] = 'win';                                 //derecha gana  
-        }
+            // TIE LEFT/SELECTED
+            if (pkStats[0].hp === pkStats[1].hp) {
+                results[0] = results[1] = pkStats[0].hp > pkStats[2].hp ? 'tie-win' : 'tie-lose';
+                results[2] = pkStats[0].hp > pkStats[2].hp ? 'lose' : 'win';
 
+            // TIE LEFT/RIGHT
+            } else if (pkStats[0].hp === pkStats[2].hp) {
+                results[0] = results[2] = pkStats[0].hp > pkStats[1].hp ? 'tie-win' : 'tie-lose';
+                results[1] = pkStats[0].hp > pkStats[1].hp ? 'lose' : 'win';
 
-    } else if (pkStats[0].hp === pkStats[2].hp) {       //SI IZQUIERDA Y DERECHA EMPATAN
-        
-        if (pkStats[0].hp > pkStats[1].hp) {               //e izquierda > centro
-            results[0] = 'tie-win';                            //izquierda empata ganando
-            results[1] = 'lose';                               //centro pierde
-            results[2] = 'tie-win';                            //derecha empata ganando  
-        } else if (pkStats[0].hp < pkStats[1].hp) {        //e izquierda < centro
-            results[0] = 'tie-lose';                            //izquierda empata perdiendo
-            results[1] = 'win';                                 //centro gana
-            results[2] = 'tie-lose';                            //derecha empata perdiendo   
-        }
+            // TIE SELECTED/RIGHT
+            } else if (pkStats[1].hp === pkStats[2].hp) {
+                results[1] = results[2] = pkStats[1].hp > pkStats[0].hp ? 'tie-win' : 'tie-lose';
+                results[0] = pkStats[1].hp > pkStats[0].hp ? 'lose' : 'win';
 
-
-    } else if (pkStats[1].hp === pkStats[2].hp) {       //SI CENTRO Y DERECHA EMPATAN
-        
-        if (pkStats[1].hp > pkStats[0].hp) {               //y centro > izquierda
-            results[0] = 'lose';                               //izquierda pierde    
-            results[1] = 'tie-win';                            //centro empata ganando
-            results[2] = 'tie-win';                            //derecha empata ganando
-        } else if (pkStats[1].hp < pkStats[0].hp) {        //y centro < izquierda
-            results[0] = 'win';                               //izquierda gana 
-            results[1] = 'tie-lose';                            //centro empata perdiendo
-            results[2] = 'tie-lose';                            //derecha empata perdiendo
-        }
-
-
-    } else if (pkStats[0].defense === pkStats[1].defense && pkStats[0].defense === pkStats[2].defense) {     //SI LOS 3 EMPATAN
-            results[0] = 'tie-win';                             //izquierda empata ganando
-            results[1] = 'tie-win';                             //centro empata ganando
-            results[2] = 'tie-win';                                //derecha pierde       
-        }
+            // TIE LEFT/SELECTED/RIGHT
+            } else if (pkStats.every(stat => stat.defense === pkStats[0].defense)) {
+                results.fill('tie-win');
+            }
 
 
 
-        // Determinar el resultado final basado en el resultado del Pokémon Centro
+        //FINAL RESULT
         let finalResult;
         if (results[1] === 'win') {
             finalResult = 'Victory!';
